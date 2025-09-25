@@ -52,6 +52,52 @@ def get_film_details(film_id):
     finally:
         conn.close()
 
+@app.route("/api/actors/top", methods=["GET"])
+def top_actors():
+    sql = """
+        SELECT a.actor_id, CONCAT(a.first_name, ' ', a.last_name) AS name, COUNT(*) AS film_count
+        FROM actor a
+        JOIN film_actor fa ON a.actor_id = fa.actor_id
+        JOIN film f ON fa.film_id = f.film_id
+        JOIN inventory i ON f.film_id = i.film_id
+        JOIN rental r ON i.inventory_id = r.inventory_id
+        GROUP BY a.actor_id, a.first_name, a.last_name
+        ORDER BY film_count DESC
+        LIMIT 5;
+    """
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(sql)
+        rows = cur.fetchall()
+        cur.close()
+        return jsonify(rows)
+    finally:
+        conn.close()
+
+@app.route("/api/categories/top", methods=["GET"])
+def top_categories():
+    sql = """
+        SELECT c.name AS category, COUNT(*) AS rental_count
+        FROM rental r
+        JOIN inventory i ON r.inventory_id = i.inventory_id
+        JOIN film f ON i.film_id = f.film_id
+        JOIN film_category fc ON f.film_id = fc.film_id
+        JOIN category c ON fc.category_id = c.category_id
+        GROUP BY c.name
+        ORDER BY rental_count DESC
+        LIMIT 5;
+    """
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(sql)
+        rows = cur.fetchall()
+        cur.close()
+        return jsonify(rows)
+    finally:
+        conn.close()
+
 
 
 if __name__ == '__main__':
