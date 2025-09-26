@@ -119,5 +119,27 @@ def top_customers():
         conn.close()
 
 
+@app.route("/api/films/revenue", methods=["GET"])
+def top_films_revenue():
+    sql = """
+        SELECT f.film_id, f.title, SUM(p.amount) AS revenue
+        FROM payment p
+        JOIN rental r ON p.rental_id = r.rental_id
+        JOIN inventory i ON r.inventory_id = i.inventory_id
+        JOIN film f ON i.film_id = f.film_id
+        GROUP BY f.film_id, f.title
+        ORDER BY revenue DESC
+        LIMIT 5;
+    """
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(sql)
+        rows = cur.fetchall()
+        cur.close()
+        return jsonify(rows)
+    finally:
+        conn.close()
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
