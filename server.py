@@ -98,6 +98,25 @@ def top_categories():
     finally:
         conn.close()
 
+@app.route("/api/customers/top", methods=["GET"])
+def top_customers():
+    sql = """
+        SELECT c.customer_id, c.first_name, c.last_name, COUNT(*) AS rental_count
+        FROM rental r
+        JOIN customer c ON r.customer_id = c.customer_id
+        GROUP BY c.customer_id, c.first_name, c.last_name
+        ORDER BY rental_count DESC
+        LIMIT 5;
+    """
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(sql)
+        rows = cur.fetchall()
+        cur.close()
+        return jsonify(rows)
+    finally:
+        conn.close()
 
 
 if __name__ == '__main__':
