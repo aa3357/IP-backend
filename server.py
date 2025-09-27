@@ -144,29 +144,85 @@ def top_films_revenue():
 @app.route("/api/customers", methods=["GET"])
 def get_customers():
     page = int(request.args.get("page", 1))
-    limit = int(request.args.get("limit", 10))
-    offset = (page - 1) * limit
+    per_page = int(request.args.get("per_page", 10))
 
-    sql = """
-        SELECT customer_id, first_name, last_name, email
-        FROM customer
-        ORDER BY last_name, first_name
-        LIMIT %s OFFSET %s;
-    """
+    customer_id = request.args.get("id")
+    first_name = request.args.get("first_name")
+    last_name = request.args.get("last_name")
+
+    offset = (page - 1) * per_page
+
     conn = get_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(sql, (limit, offset))
-            rows = cur.fetchall()
+    cur = conn.cursor()
 
-        return jsonify({
-            "page": page,
-            "limit": limit,
-            "customers": rows
-        })
-    finally:
-        conn.close()
+    # Base query
+    query = "SELECT customer_id, first_name, last_name, email FROM customer WHERE 1=1"
+    params = []
 
+    if customer_id:
+        query += " AND customer_id = %s"
+        params.append(customer_id)
+    if first_name:
+        query += " AND first_name LIKE %s"
+        params.append(f"%{first_name}%")
+    if last_name:
+        query += " AND last_name LIKE %s"
+        params.append(f"%{last_name}%")
+
+    query += " LIMIT %s OFFSET %s"
+    params.extend([per_page, offset])
+
+    cur.execute(query, params)
+    customers = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return jsonify(customers)
+
+#Actor's Details 
+@app.route("/api/actors/<int:actor_id>", methods=["GET"])
+def get_actor_details(actor_id):
+    conn = get_conn()
+    cursor = conn.cursor()
+
+    # 1. Get actor details
+    cursor.execute(
+        """
+        SELECT actor_id, first_name, last_name
+        FROM actor
+        WHERE actor_id = %s
+        """,
+        (actor_id,),
+    )
+    actor = cursor.fetchone()
+
+    if not actor:
+        return jsonify({"error": "Actor not found"}), 404
+
+    # 2. Get top 5 rented films for this actor
+    cursor.execute(
+        """
+        SELECT f.film_id, f.title, COUNT(r.rental_id) AS rental_count
+        FROM film f
+        INNER JOIN film_actor fa ON f.film_id = fa.film_id
+        INNER JOIN inventory i ON f.film_id = i.film_id
+        INNER JOIN rental r ON i.inventory_id = r.inventory_id
+        WHERE fa.actor_id = %s
+        GROUP BY f.film_id, f.title
+        ORDER BY rental_count DESC
+        LIMIT 5
+        """,
+        (actor_id,),
+    )
+    films = cursor.fetchall()
+
+    cursor.close()
+
+    return jsonify({
+        "actor": actor,
+        "top_films": films
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
