@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from db import get_conn
 
@@ -140,6 +140,33 @@ def top_films_revenue():
         return jsonify(rows)
     finally:
         conn.close()
+
+@app.route("/api/customers", methods=["GET"])
+def get_customers():
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 10))
+    offset = (page - 1) * limit
+
+    sql = """
+        SELECT customer_id, first_name, last_name, email
+        FROM customer
+        ORDER BY last_name, first_name
+        LIMIT %s OFFSET %s;
+    """
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, (limit, offset))
+            rows = cur.fetchall()
+
+        return jsonify({
+            "page": page,
+            "limit": limit,
+            "customers": rows
+        })
+    finally:
+        conn.close()
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
