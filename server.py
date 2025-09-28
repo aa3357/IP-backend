@@ -224,5 +224,30 @@ def get_actor_details(actor_id):
         "top_films": films
     })
 
+from flask import request  # make sure this is imported at the top
+
+@app.route("/api/customers", methods=["POST"])
+def add_customer():
+    data = request.json  # expects JSON body
+    first_name = data.get("first_name")
+    last_name = data.get("last_name")
+    email = data.get("email")
+    address_id = data.get("address_id")  # you can default to 1 if needed
+    active = data.get("active", 1)
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        sql = """
+            INSERT INTO customer (first_name, last_name, email, address_id, active, create_date)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+        """
+        cur.execute(sql, (first_name, last_name, email, address_id, active))
+        conn.commit()
+        cur.close()
+        return {"message": "Customer added successfully", "customer_id": cur.lastrowid}, 201
+    finally:
+        conn.close()
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
