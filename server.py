@@ -6,7 +6,7 @@ app = Flask(__name__)
 CORS(app)
 
 
-# --- Feature 1: Top 5 rented films ---
+#Feature 1 top 5 films
 @app.route('/api/films/top', methods=['GET'])
 def top_films():
     sql = """
@@ -30,7 +30,7 @@ def top_films():
     finally:
         conn.close()
 
-
+#Feature 2 film details
 @app.route("/api/films/<int:film_id>", methods=["GET"])
 def get_film_details(film_id):
     sql = """
@@ -52,6 +52,7 @@ def get_film_details(film_id):
     finally:
         conn.close()
 
+#Feature 4 view top 5 actors
 @app.route("/api/actors/top", methods=["GET"])
 def top_actors():
     sql = """
@@ -75,72 +76,8 @@ def top_actors():
     finally:
         conn.close()
 
-@app.route("/api/categories/top", methods=["GET"])
-def top_categories():
-    sql = """
-        SELECT c.name AS category, COUNT(*) AS rental_count
-        FROM rental r
-        JOIN inventory i ON r.inventory_id = i.inventory_id
-        JOIN film f ON i.film_id = f.film_id
-        JOIN film_category fc ON f.film_id = fc.film_id
-        JOIN category c ON fc.category_id = c.category_id
-        GROUP BY c.name
-        ORDER BY rental_count DESC
-        LIMIT 5;
-    """
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute(sql)
-        rows = cur.fetchall()
-        cur.close()
-        return jsonify(rows)
-    finally:
-        conn.close()
 
-@app.route("/api/customers/top", methods=["GET"])
-def top_customers():
-    sql = """
-        SELECT c.customer_id, c.first_name, c.last_name, COUNT(*) AS rental_count
-        FROM rental r
-        JOIN customer c ON r.customer_id = c.customer_id
-        GROUP BY c.customer_id, c.first_name, c.last_name
-        ORDER BY rental_count DESC
-        LIMIT 5;
-    """
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute(sql)
-        rows = cur.fetchall()
-        cur.close()
-        return jsonify(rows)
-    finally:
-        conn.close()
-
-
-@app.route("/api/films/revenue", methods=["GET"])
-def top_films_revenue():
-    sql = """
-        SELECT f.film_id, f.title, SUM(p.amount) AS revenue
-        FROM payment p
-        JOIN rental r ON p.rental_id = r.rental_id
-        JOIN inventory i ON r.inventory_id = i.inventory_id
-        JOIN film f ON i.film_id = f.film_id
-        GROUP BY f.film_id, f.title
-        ORDER BY revenue DESC
-        LIMIT 5;
-    """
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute(sql)
-        rows = cur.fetchall()
-        cur.close()
-        return jsonify(rows)
-    finally:
-        conn.close()
-
+#Feature 5,6 view and search customers
 @app.route("/api/customers", methods=["GET"])
 def get_customers():
     page = int(request.args.get("page", 1))
@@ -155,7 +92,7 @@ def get_customers():
     conn = get_conn()
     cur = conn.cursor()
 
-    # Base query
+
     query = "SELECT customer_id, first_name, last_name, email FROM customer WHERE 1=1"
     params = []
 
@@ -180,13 +117,13 @@ def get_customers():
 
     return jsonify(customers)
 
-#Actor's Details 
+#Feature 4: Actor Details
 @app.route("/api/actors/<int:actor_id>", methods=["GET"])
 def get_actor_details(actor_id):
     conn = get_conn()
     cursor = conn.cursor()
 
-    # 1. Get actor details
+    #actor details
     cursor.execute(
         """
         SELECT actor_id, first_name, last_name
@@ -200,7 +137,7 @@ def get_actor_details(actor_id):
     if not actor:
         return jsonify({"error": "Actor not found"}), 404
 
-    # 2. Get top 5 rented films for this actor
+    #top 5 rented films for this actor
     cursor.execute(
         """
         SELECT f.film_id, f.title, COUNT(r.rental_id) AS rental_count
@@ -224,30 +161,38 @@ def get_actor_details(actor_id):
         "top_films": films
     })
 
-from flask import request  # make sure this is imported at the top
 
-@app.route("/api/customers", methods=["POST"])
+#Feature 7
+@app.route('/api/customers', methods=['POST'])
 def add_customer():
-    data = request.json  # expects JSON body
-    first_name = data.get("first_name")
-    last_name = data.get("last_name")
-    email = data.get("email")
-    address_id = data.get("address_id")  # you can default to 1 if needed
-    active = data.get("active", 1)
+    data = request.get_json()
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+    email = data.get('email')
+    address_id = data.get('address_id', 1)
+    store_id = data.get('store_id', 1)
+    active = 1
 
     conn = get_conn()
-    try:
-        cur = conn.cursor()
-        sql = """
-            INSERT INTO customer (first_name, last_name, email, address_id, active, create_date)
-            VALUES (%s, %s, %s, %s, %s, NOW())
-        """
-        cur.execute(sql, (first_name, last_name, email, address_id, active))
-        conn.commit()
-        cur.close()
-        return {"message": "Customer added successfully", "customer_id": cur.lastrowid}, 201
-    finally:
-        conn.close()
+    cur = conn.cursor()
+    sql = """
+        INSERT INTO customer (store_id, first_name, last_name, email, address_id, active, create_date)
+        VALUES (%s, %s, %s, %s, %s, %s, NOW())
+    """
+    cur.execute(sql, (store_id, first_name, last_name, email, address_id, active))
+    conn.commit()
+
+    new_id = cur.lastrowid
+    cur.close()
+    conn.close()
+
+    return jsonify({
+        "customer_id": new_id,
+        "first_name": first_name,
+        "last_name": last_name,
+        "email": email
+    }), 201
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
