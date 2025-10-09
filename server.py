@@ -193,6 +193,43 @@ def add_customer():
         "email": email
     }), 201
 
+#Feature 8: Update customer
+@app.route('/api/customers/<int:customer_id>', methods=['PUT'])
+def update_customer(customer_id):
+    data = request.get_json()
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+    email = data.get('email')
+
+    conn = get_conn()
+    cur = conn.cursor()
+    
+    # Check if customer exists
+    cur.execute("SELECT customer_id FROM customer WHERE customer_id = %s", (customer_id,))
+    if not cur.fetchone():
+        cur.close()
+        conn.close()
+        return jsonify({"error": "Customer not found"}), 404
+    
+
+    sql = """
+        UPDATE customer 
+        SET first_name = %s, last_name = %s, email = %s
+        WHERE customer_id = %s
+    """
+    cur.execute(sql, (first_name, last_name, email, customer_id))
+    conn.commit()
+    
+    cur.close()
+    conn.close()
+
+    return jsonify({
+        "customer_id": customer_id,
+        "first_name": first_name,
+        "last_name": last_name,
+        "email": email
+    }), 200
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
