@@ -204,7 +204,6 @@ def update_customer(customer_id):
     conn = get_conn()
     cur = conn.cursor()
     
-    # Check if customer exists
     cur.execute("SELECT customer_id FROM customer WHERE customer_id = %s", (customer_id,))
     if not cur.fetchone():
         cur.close()
@@ -228,6 +227,32 @@ def update_customer(customer_id):
         "first_name": first_name,
         "last_name": last_name,
         "email": email
+    }), 200
+
+#Feature 9: Delete customer
+@app.route('/api/customers/<int:customer_id>', methods=['DELETE'])
+def delete_customer(customer_id):
+    conn = get_conn()
+    cur = conn.cursor()
+    
+
+    cur.execute("SELECT customer_id, first_name, last_name FROM customer WHERE customer_id = %s", (customer_id,))
+    customer = cur.fetchone()
+    if not customer:
+        cur.close()
+        conn.close()
+        return jsonify({"error": "Customer not found"}), 404
+    
+
+    cur.execute("DELETE FROM customer WHERE customer_id = %s", (customer_id,))
+    conn.commit()
+    
+    cur.close()
+    conn.close()
+
+    return jsonify({
+        "message": f"Customer {customer[1]} {customer[2]} has been deleted successfully",
+        "customer_id": customer_id
     }), 200
 
 
