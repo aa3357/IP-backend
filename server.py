@@ -255,6 +255,63 @@ def delete_customer(customer_id):
         "customer_id": customer_id
     }), 200
 
+#Feature 10: Get customer details and rental history
+@app.route('/api/customers/<int:customer_id>/details', methods=['GET'])
+def get_customer_details(customer_id):
+    conn = get_conn()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        SELECT customer_id, first_name, last_name, email, 
+               address_id, active, create_date
+        FROM customer 
+        WHERE customer_id = %s
+    """, (customer_id,))
+    customer = cur.fetchone()
+    
+    if not customer:
+        cur.close()
+        conn.close()
+        return jsonify({"error": "Customer not found"}), 404
+    
+    cur.execute("""
+        SELECT r.rental_id, f.title, f.rental_rate, r.rental_date, r.return_date,
+               CASE 
+                   WHEN r.return_date IS NULL THEN 'Currently Rented'
+                   ELSE 'Returned'
+               END as status,
+               DATEDIFF(COALESCE(r.return_date, NOW()), r.rental_date) as days_rented
+        FROM rental r
+        JOIN inventory i ON r.inventory_id = i.inventory_id
+        JOIN film f ON i.film_id = f.film_id
+        WHERE r.customer_id = %s
+        ORDER BY r.rental_date DESC
+    """, (customer_id,))
+    rentals = cur.fetchall()
+    
+
+    cur.execute("""
+        SELECT 
+            COUNT(*) as total_rentals,
+            COUNT(CASE WHEN return_date IS NULL THEN 1 END) as current_rentals,
+            COUNT(CASE WHEN return_date IS NOT NULL THEN 1 END) as completed_rentals,
+            SUM(CASE WHEN return_date IS NOT NULL THEN f.rental_rate ELSE 0 END) as total_spent
+        FROM rental r
+        JOIN inventory i ON r.inventory_id = i.inventory_id
+        JOIN film f ON i.film_id = f.film_id
+        WHERE r.customer_id = %s
+    """, (customer_id,))
+    stats = cur.fetchone()
+    
+    cur.close()
+    conn.close()
+    
+    return jsonify({
+        "customer": customer,
+        "rentals": rentals,
+        "statistics": stats
+    })
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
