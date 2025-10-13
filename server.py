@@ -312,6 +312,28 @@ def get_customer_details(customer_id):
         "statistics": stats
     })
 
+#Feature 11: Return movie
+@app.route('/api/rentals/<int:rental_id>/return', methods=['PUT'])
+def return_rental(rental_id):
+    conn = get_conn()
+    cur = conn.cursor()
+    
+    cur.execute("SELECT rental_id FROM rental WHERE rental_id = %s", (rental_id,))
+    rental = cur.fetchone()
+    if not rental:
+        cur.close()
+        conn.close()
+        return jsonify({"error": "Rental not found"}), 404
+
+    cur.execute("UPDATE rental SET return_date = NOW() WHERE rental_id = %s AND return_date IS NULL", (rental_id,))
+    conn.commit()
+    
+    cur.close()
+    conn.close()
+
+    return jsonify({"message": f"Rental {rental_id} marked as returned"}), 200
+
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
