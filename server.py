@@ -6,6 +6,7 @@ app = Flask(__name__)
 CORS(app)
 
 
+
 #Feature 1 top 5 films
 @app.route('/api/films/top', methods=['GET'])
 def top_films():
@@ -333,6 +334,58 @@ def return_rental(rental_id):
 
     return jsonify({"message": f"Rental {rental_id} marked as returned"}), 200
 
+
+#Feature 12: Search films by title, actor, or genre
+@app.route('/api/films/search', methods=['GET'])
+def search_films():
+    query = request.args.get('q', '').strip()
+    search_type = request.args.get('type', 'title').strip().lower()
+
+    if not query:
+        return jsonify([])
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    if search_type == 'actor':
+        sql = """
+            SELECT DISTINCT f.film_id, f.title
+            FROM film f
+            JOIN film_actor fa ON f.film_id = fa.film_id
+            JOIN actor a ON fa.actor_id = a.actor_id
+            WHERE CONCAT(a.first_name, ' ', a.last_name) LIKE %s
+            ORDER BY f.title
+            LIMIT 50
+        """
+        params = (f"%{query}%",)
+    elif search_type == 'genre':
+        sql = """
+            SELECT DISTINCT f.film_id, f.title
+            FROM film f
+            JOIN film_category fc ON f.film_id = fc.film_id
+            JOIN category c ON fc.category_id = c.category_id
+            WHERE c.name LIKE %s
+            ORDER BY f.title
+            LIMIT 50
+        """
+        params = (f"%{query}%",)
+    else:
+        sql = """
+            SELECT f.film_id, f.title
+            FROM film f
+            WHERE f.title LIKE %s
+            ORDER BY f.title
+            LIMIT 50
+        """
+        params = (f"%{query}%",)
+
+    try:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+        return jsonify(rows)
+    finally:
+        cur.close()
+        conn.close()
 
 
 if __name__ == '__main__':
