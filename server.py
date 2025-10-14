@@ -35,10 +35,11 @@ def top_films():
 @app.route("/api/films/<int:film_id>", methods=["GET"])
 def get_film_details(film_id):
     sql = """
-        SELECT film_id AS film_id, title, description, release_year,
-               rating, rental_duration, rental_rate, length, replacement_cost
-        FROM film
-        WHERE film_id = %s;
+        SELECT f.film_id AS film_id, f.title, f.description, f.release_year, f.rating, f.rental_duration, f.rental_rate, f.length, f.replacement_cost, c.name AS category_name
+        FROM film AS f
+        JOIN film_category AS fc ON f.film_id = fc.film_id
+        JOIN category AS c ON fc.category_id = c.category_id
+        WHERE f.film_id = %s;
     """
     conn = get_conn()
     try:
