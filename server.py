@@ -387,6 +387,64 @@ def search_films():
         cur.close()
         conn.close()
 
+#Feature 13: Rent film
+@app.route('/api/rentals', methods=['POST'])
+def rent_film():
+    data = request.get_json()
+    customer_id = data.get('customer_id')
+    film_id = data.get('film_id')
+    
+    if not customer_id or not film_id:
+        return jsonify({"error": "Customer ID and Film ID are required"}), 400
+    
+    conn = get_conn()
+    cur = conn.cursor()
+    
+    try:
+        cur.execute("SELECT customer_id FROM customer WHERE customer_id = %s", (customer_id,))
+        if not cur.fetchone():
+            return jsonify({"error": "Customer not found"}), 404
+        
+        cur.execute("SELECT film_id FROM film WHERE film_id = %s", (film_id,))
+        if not cur.fetchone():
+            return jsonify({"error": "Film not found"}), 404
+        
+        cur.execute("""
+            SELECT i.inventory_id 
+            FROM inventory i 
+            LEFT JOIN rental r ON i.inventory_id = r.inventory_id AND r.return_date IS NULL
+            WHERE i.film_id = %s AND r.rental_id IS NULL
+            LIMIT 1
+        """, (film_id,))
+        
+        available_inventory = cur.fetchone()
+        if not available_inventory:
+            return jsonify({"error": "No copies of this film are currently available"}), 400
+        
+        inventory_id = available_inventory['inventory_id']
+        
+        cur.execute("""
+            INSERT INTO rental (inventory_id, customer_id, rental_date, staff_id)
+            VALUES (%s, %s, NOW(), 1)
+        """, (inventory_id, customer_id))
+        
+        rental_id = cur.lastrowid
+        conn.commit()
+        
+        return jsonify({
+            "message": "Film rented successfully",
+            "rental_id": rental_id,
+            "customer_id": customer_id,
+            "film_id": film_id
+        }), 201
+        
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": "Failed to rent film"}), 500
+    finally:
+        cur.close()
+        conn.close()
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
